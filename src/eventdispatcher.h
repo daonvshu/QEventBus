@@ -4,6 +4,10 @@
 #include <qhash.h>
 #include <qmutex.h>
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <qvariantlist.h>
+#endif
+
 #include <utility>
 
 #include "global.h"

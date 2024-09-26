@@ -49,7 +49,7 @@ void EventDispatcher::invokeObserver(InvokableObserver *observer, const QString&
 
     {
         auto methods = methodCache.values(observer);
-        int methodCacheIndex = methods.indexOf(MethodCacheData(eventName));
+        auto methodCacheIndex = methods.indexOf(MethodCacheData(eventName));
         const auto& cacheData = methods.at(methodCacheIndex);
 
         if (!cacheData.syncMethod.isEmpty()) {
