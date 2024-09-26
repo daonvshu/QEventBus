@@ -12,13 +12,16 @@ EventDispatcher::EventDispatcher(QObject *parent)
 }
 
 void EventDispatcher::addObserver(InvokableObserver *observer) {
+    QMutexLocker lock(&observerMutex);
     observers.append(observer);
 }
 
 void EventDispatcher::dispatchEvent(const QString &eventName, const QVariantList &data) {
     int index = 0;
+    QMutexLocker lock(&observerMutex);
     while (index < observers.size()) {
         if (!observers.at(index)->canBeReference()) {
+            methodCache.remove(observers.at(index));
             observers.removeAt(index);
             continue;
         }
@@ -27,27 +30,39 @@ void EventDispatcher::dispatchEvent(const QString &eventName, const QVariantList
 }
 
 void EventDispatcher::invokeObserver(InvokableObserver *observer, const QString& eventName, const QVariantList &data) {
-    auto syncMethod = getMethodName(eventName, false);
     auto context = observer->context();
-    if (methodExist(context, syncMethod)) {
-        callMethod(context, syncMethod, data);
+    if (!methodCache.contains(observer)) {
+        QPair<QByteArray, QByteArray> methods;
+        auto syncMethod = getMethodName(eventName, false);
+        if (methodExist(context, syncMethod)) {
+            methods.first = syncMethod;
+        }
+        auto asyncMethod = getMethodName(eventName, true);
+        if (methodExist(context, asyncMethod)) {
+            methods.second = asyncMethod;
+        }
+        methodCache.insert(observer, methods);
     }
 
-    auto asyncMethod = getMethodName(eventName, true);
-    if (methodExist(context, asyncMethod)) {
+    auto methods = methodCache.value(observer);
+    if (!methods.first.isEmpty()) {
+        callMethod(context, methods.first, data);
+    }
+
+    if (!methods.second.isEmpty()) {
         auto invokeWork = QThread::create([=] {
-            callMethod(context, asyncMethod, data);
+            callMethod(context, methods.second, data);
         });
         connect(invokeWork, &QThread::finished, invokeWork, &QObject::deleteLater);
         invokeWork->start();
     }
 }
 
-QString EventDispatcher::getMethodName(const QString &eventName, bool async) {
+QByteArray EventDispatcher::getMethodName(const QString &eventName, bool async) {
     if (async) {
-        return QLatin1String("onAsyncEvent") + eventName;
+        return (QLatin1String("onAsyncEvent") + eventName).toLatin1();
     } else {
-        return QLatin1String("onEvent") + eventName;
+        return (QLatin1String("onEvent") + eventName).toLatin1();
     }
 
 }
@@ -59,12 +74,12 @@ QGenericArgument EventDispatcher::toArgument(const QVariantList &args, int index
     return { nullptr };
 }
 
-bool EventDispatcher::methodExist(const QObject *object, const QString &methodName) {
-    return object->metaObject()->indexOfMethod(methodName.toLatin1()) != -1;
+bool EventDispatcher::methodExist(const QObject *object, const QByteArray &methodName) {
+    return object->metaObject()->indexOfMethod(methodName) != -1;
 }
 
-void EventDispatcher::callMethod(QObject *object, const QString &methodName, const QVariantList &data) {
-    QMetaObject::invokeMethod(object, methodName.toLatin1().constData(), Qt::AutoConnection,
+void EventDispatcher::callMethod(QObject *object, const QByteArray &methodName, const QVariantList &data) {
+    QMetaObject::invokeMethod(object, methodName.constData(), Qt::AutoConnection,
                               toArgument(data, 0),
                               toArgument(data, 1),
                               toArgument(data, 2),
