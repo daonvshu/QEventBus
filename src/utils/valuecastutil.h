@@ -6,10 +6,10 @@
 
 EVENT_BUS_BEGIN_NAMESPACE
 
-struct ValueCastUtil {
+namespace ValueCastUtil {
     template<typename T, typename... Args>
     static QVariantList toVariantList(T&& value, Args&&... args) {
-        return QVariantList{ castToVariant(value) } + toVariantList(args...);
+        return QVariantList{ castToVariant<T>(value) } + toVariantList(args...);
     }
 
     static QVariantList toVariantList() {

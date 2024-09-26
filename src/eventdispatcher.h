@@ -4,6 +4,8 @@
 #include <qhash.h>
 #include <qmutex.h>
 
+#include <utility>
+
 #include "global.h"
 
 #include "utils/invokableobserver.h"
@@ -27,13 +29,25 @@ private:
 
     static QByteArray getMethodName(const QString& eventName, bool async);
     static QGenericArgument toArgument(const QVariantList& args, int index);
-    static bool methodExist(const QObject* object, const QByteArray& methodName);
-    static void callMethod(QObject* object, const QByteArray& methodName, const QVariantList& data);
+    static bool methodExist(const QObject* object, QByteArray methodName, const QVariantList& data);
+    static void callMethod(QObject* object, const QByteArray& methodName, const QVariantList& data, Qt::ConnectionType connectionType);
 
 private:
     QMutex observerMutex;
     QList<InvokableObserver*> observers;
-    QHash<InvokableObserver*, QPair<QByteArray, QByteArray>> methodCache;
+
+    struct MethodCacheData {
+        QString eventName;
+        QByteArray syncMethod;
+        QByteArray asyncMethod;
+
+        explicit MethodCacheData(QString eventName): eventName(std::move(eventName)) {}
+
+        bool operator==(const MethodCacheData& other) const {
+            return eventName == other.eventName;
+        }
+    };
+    QMultiHash<InvokableObserver*, MethodCacheData> methodCache;
 };
 
 EVENT_BUS_END_NAMESPACE

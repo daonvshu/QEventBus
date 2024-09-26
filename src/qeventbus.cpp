@@ -2,6 +2,8 @@
 
 #include "eventdispatcher.h"
 
+#include <qcoreapplication.h>
+
 EVENT_BUS_USE_NAMESPACE
 
 QEventBus::QEventBus(QObject *parent)
@@ -11,6 +13,10 @@ QEventBus::QEventBus(QObject *parent)
     dispatcher = new EventDispatcher;
     dispatcher->moveToThread(dispatchThread);
 
+    connect(qApp, &QCoreApplication::aboutToQuit, this, [&] {
+        dispatchThread->quit();
+    });
+
     connect(dispatchThread, &QThread::finished, [=] {
         dispatcher->deleteLater();
         dispatchThread->deleteLater();
@@ -19,11 +25,16 @@ QEventBus::QEventBus(QObject *parent)
     dispatchThread->start();
 }
 
-void QEventBus::publishEvent(const QString &eventName, const QVariantList &data) {
+void QEventBus::publishEvent(const QString &eventName, const QVariantList &data) const {
     dispatcher->sendEvent(eventName, data);
 }
 
-void QEventBus::registerTarget(EventBus::InvokableObserver *observer) {
+void QEventBus::registerTarget(EventBus::InvokableObserver *observer) const {
     dispatcher->addObserver(observer);
+}
+
+const QEventBus &QEventBus::globalBus() {
+    static QEventBus bus;
+    return bus;
 }
 
