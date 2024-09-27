@@ -68,7 +68,7 @@ void EventDispatcher::invokeObserver(InvokableObserver *observer, const QString&
 
 QByteArray EventDispatcher::getMethodName(const QString &eventName, bool async) {
     QByteArray methodName = async ? "onAsyncEvent" : "onEvent";
-    methodName += eventName.toLatin1();
+    methodName += toUpperCamelCase(eventName).toLatin1();
     return methodName;
 }
 
@@ -104,6 +104,29 @@ void EventDispatcher::callMethod(QObject *object, const QByteArray &methodName, 
                               toArgument(data, 7),
                               toArgument(data, 8),
                               toArgument(data, 9));
+}
+
+QString EventDispatcher::toUpperCamelCase(const QString &input) {
+    QString result;
+    bool capitalizeNext = true;
+
+    for (QChar ch : input) {
+        if (ch.isLetter()) {
+            if (capitalizeNext) {
+                result += ch.toUpper();
+                capitalizeNext = false;
+            } else {
+                result += ch.toLower();
+            }
+        } else if (ch.isDigit()) {
+            result += ch;
+            capitalizeNext = true;
+        } else {
+            capitalizeNext = true;
+        }
+    }
+
+    return result;
 }
 
 EVENT_BUS_END_NAMESPACE
