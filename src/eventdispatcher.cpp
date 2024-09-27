@@ -116,7 +116,7 @@ QString EventDispatcher::toUpperCamelCase(const QString &input) {
                 result += ch.toUpper();
                 capitalizeNext = false;
             } else {
-                result += ch.toLower();
+                result += ch;
             }
         } else if (ch.isDigit()) {
             result += ch;
