@@ -3,8 +3,11 @@
 #include <qvariant.h>
 #include <qthread.h>
 #include <qdebug.h>
+#include <qloggingcategory.h>
 
 EVENT_BUS_BEGIN_NAMESPACE
+
+Q_LOGGING_CATEGORY(dispatcher, "qeventbus.dispatcher")
 
 EventDispatcher::EventDispatcher(QObject *parent)
     : QObject(parent)
@@ -36,11 +39,15 @@ void EventDispatcher::invokeObserver(InvokableObserver *observer, const QString&
         if (!methodCache.contains(observer) || methodCache.values(observer).indexOf(MethodCacheData(eventName)) == -1) {
             MethodCacheData cacheData(eventName);
             cacheData.syncMethod = getMethodName(eventName, false);
-            if (!methodExist(context, cacheData.syncMethod, data)) {
+            auto methodSignature = cacheData.syncMethod;
+            if (!methodExist(context, methodSignature, data)) {
+                qCInfo(dispatcher) << "ignore the observer" << observer->targetClassName() << "sync event:" << eventName << ", has no sync method:" << methodSignature;
                 cacheData.syncMethod.clear();
             }
             cacheData.asyncMethod = getMethodName(eventName, true);
-            if (!methodExist(context, cacheData.asyncMethod, data)) {
+            methodSignature = cacheData.asyncMethod;
+            if (!methodExist(context, methodSignature, data)) {
+                qCInfo(dispatcher) << "ignore the observer" << observer->targetClassName() << "async event:" << eventName << ", has no async method:" << methodSignature;
                 cacheData.asyncMethod.clear();
             }
             methodCache.insert(observer, cacheData);
@@ -79,7 +86,7 @@ QGenericArgument EventDispatcher::toArgument(const QVariantList &args, int index
     return { nullptr };
 }
 
-bool EventDispatcher::methodExist(const QObject *object, QByteArray methodName, const QVariantList& data) {
+bool EventDispatcher::methodExist(const QObject *object, QByteArray& methodName, const QVariantList& data) {
     methodName += "(";
     for (const auto &arg : data) {
         methodName += arg.typeName();

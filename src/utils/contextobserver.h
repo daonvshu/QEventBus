@@ -22,6 +22,10 @@ public:
         return contextPtr.data();
     }
 
+    QByteArray targetClassName() const override {
+        return T::staticMetaObject.className();
+    }
+
 private:
     QPointer<T> contextPtr;
 };

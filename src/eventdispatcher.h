@@ -33,7 +33,7 @@ private:
 
     static QByteArray getMethodName(const QString& eventName, bool async);
     static QGenericArgument toArgument(const QVariantList& args, int index);
-    static bool methodExist(const QObject* object, QByteArray methodName, const QVariantList& data);
+    static bool methodExist(const QObject* object, QByteArray& methodName, const QVariantList& data);
     static void callMethod(QObject* object, const QByteArray& methodName, const QVariantList& data, Qt::ConnectionType connectionType);
     static QString toUpperCamelCase(const QString& input);
 
