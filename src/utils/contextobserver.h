@@ -26,6 +26,10 @@ public:
         return T::staticMetaObject.className();
     }
 
+    QString targetObjectName() const override {
+        return contextPtr->objectName();
+    }
+
 private:
     QPointer<T> contextPtr;
 };

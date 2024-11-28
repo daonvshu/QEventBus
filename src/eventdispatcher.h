@@ -25,13 +25,18 @@ public:
     void addObserver(InvokableObserver* observer);
 
 signals:
-    void sendEvent(const QString& eventName, const QVariantList& data);
+    void sendEvent(const QString& eventName, const QVariantList& data, bool printTarget);
 
 private:
-    void dispatchEvent(const QString& eventName, const QVariantList& data);
-    void invokeObserver(InvokableObserver* observer, const QString& eventName, const QVariantList& data);
+    void dispatchEvent(const QString& eventName, const QVariantList& data, bool printTarget);
+    void invokeObserver(InvokableObserver* observer, const QString& eventName, const QVariantList& data, bool printTarget);
 
-    static QByteArray getMethodName(const QString& eventName, bool async);
+    enum class MethodType {
+        AutoConnectMethod,
+        DirectCallMethod,
+        AsyncCallMethod,
+    };
+    static QByteArray getMethodName(const QString& eventName, MethodType methodType);
     static QGenericArgument toArgument(const QVariantList& args, int index);
     static bool methodExist(const QObject* object, QByteArray& methodName, const QVariantList& data);
     static void callMethod(QObject* object, const QByteArray& methodName, const QVariantList& data, Qt::ConnectionType connectionType);
@@ -43,7 +48,10 @@ private:
 
     struct MethodCacheData {
         QString eventName;
-        QByteArray syncMethod;
+        QString objectName;
+        QByteArray className;
+        QByteArray autoConnectMethod;
+        QByteArray directCallMethod;
         QByteArray asyncMethod;
 
         explicit MethodCacheData(QString eventName): eventName(std::move(eventName)) {}

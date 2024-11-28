@@ -20,9 +20,9 @@ void Page2::on_btn_send1_clicked() {
 
 void Page2::on_btn_send2_clicked() {
     if (ui.use_global->isChecked()) {
-        QEventBus::globalBus().publish("event_2", ui.spinBox->value(), ui.lineEdit->text());
+        QEventBus::globalBus().publish("event_2", ui.spinBox->value(), ui.lineEdit->text())->printTarget();
     } else {
-        GlobalEventBus::getBus().publish("event-2", ui.spinBox->value(), ui.lineEdit->text());
+        GlobalEventBus::getBus().publish("event-2", ui.spinBox->value(), ui.lineEdit->text())->printTarget();
     }
 }
 

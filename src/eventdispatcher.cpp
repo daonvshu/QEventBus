@@ -20,7 +20,7 @@ void EventDispatcher::addObserver(InvokableObserver *observer) {
     observers.append(observer);
 }
 
-void EventDispatcher::dispatchEvent(const QString &eventName, const QVariantList &data) {
+void EventDispatcher::dispatchEvent(const QString &eventName, const QVariantList &data, bool printTarget) {
     int index = 0;
     QMutexLocker lock(&observerMutex);
     while (index < observers.size()) {
@@ -29,27 +29,39 @@ void EventDispatcher::dispatchEvent(const QString &eventName, const QVariantList
             observers.removeAt(index);
             continue;
         }
-        invokeObserver(observers.at(index++), eventName, data);
+        invokeObserver(observers.at(index++), eventName, data, printTarget);
     }
 }
 
-void EventDispatcher::invokeObserver(InvokableObserver *observer, const QString& eventName, const QVariantList &data) {
+void EventDispatcher::invokeObserver(InvokableObserver *observer, const QString& eventName, const QVariantList &data, bool printTarget) {
     auto context = observer->context();
     {
         if (!methodCache.contains(observer) || methodCache.values(observer).indexOf(MethodCacheData(eventName)) == -1) {
             MethodCacheData cacheData(eventName);
-            cacheData.syncMethod = getMethodName(eventName, false);
-            auto methodSignature = cacheData.syncMethod;
+            cacheData.objectName = observer->targetObjectName();
+            cacheData.className = observer->targetClassName();
+
+            cacheData.autoConnectMethod = getMethodName(eventName, MethodType::AutoConnectMethod);
+            auto methodSignature = cacheData.autoConnectMethod;
             if (!methodExist(context, methodSignature, data)) {
                 qCInfo(dispatcher) << "ignore the observer" << observer->targetClassName() << "sync event:" << eventName << ", has no sync method:" << methodSignature;
-                cacheData.syncMethod.clear();
+                cacheData.autoConnectMethod.clear();
             }
-            cacheData.asyncMethod = getMethodName(eventName, true);
+
+            cacheData.directCallMethod = getMethodName(eventName, MethodType::DirectCallMethod);
+            methodSignature = cacheData.directCallMethod;
+            if (!methodExist(context, methodSignature, data)) {
+                qCInfo(dispatcher) << "ignore the observer" << observer->targetClassName() << "direct event:" << eventName << ", has no direct method:" << methodSignature;
+                cacheData.directCallMethod.clear();
+            }
+
+            cacheData.asyncMethod = getMethodName(eventName, MethodType::AsyncCallMethod);
             methodSignature = cacheData.asyncMethod;
             if (!methodExist(context, methodSignature, data)) {
                 qCInfo(dispatcher) << "ignore the observer" << observer->targetClassName() << "async event:" << eventName << ", has no async method:" << methodSignature;
                 cacheData.asyncMethod.clear();
             }
+
             methodCache.insert(observer, cacheData);
         }
     }
@@ -59,11 +71,24 @@ void EventDispatcher::invokeObserver(InvokableObserver *observer, const QString&
         auto methodCacheIndex = methods.indexOf(MethodCacheData(eventName));
         const auto& cacheData = methods.at(methodCacheIndex);
 
-        if (!cacheData.syncMethod.isEmpty()) {
-            callMethod(context, cacheData.syncMethod, data, Qt::AutoConnection);
+        if (!cacheData.autoConnectMethod.isEmpty()) {
+            if (printTarget) {
+                qCInfo(dispatcher).nospace() << "call target: " << cacheData.objectName << "[" << cacheData.className << "]" << " auto connection method '" << cacheData.autoConnectMethod << "'";
+            }
+            callMethod(context, cacheData.autoConnectMethod, data, Qt::AutoConnection);
+        }
+
+        if (!cacheData.directCallMethod.isEmpty()) {
+            if (printTarget) {
+                qCInfo(dispatcher).nospace() << "call target: " << cacheData.objectName << "[" << cacheData.className << "]" << " direct connection method '" << cacheData.directCallMethod << "'";
+            }
+            callMethod(context, cacheData.directCallMethod, data, Qt::DirectConnection);
         }
 
         if (!cacheData.asyncMethod.isEmpty()) {
+            if (printTarget) {
+                qCInfo(dispatcher).nospace() << "call target: " << cacheData.objectName << "[" << cacheData.className << "]" << " async method '" << cacheData.asyncMethod << "'";
+            }
             auto invokeWork = QThread::create([=] {
                 callMethod(context, cacheData.asyncMethod, data, Qt::DirectConnection);
             });
@@ -73,8 +98,19 @@ void EventDispatcher::invokeObserver(InvokableObserver *observer, const QString&
     }
 }
 
-QByteArray EventDispatcher::getMethodName(const QString &eventName, bool async) {
-    QByteArray methodName = async ? "onAsyncEvent" : "onEvent";
+QByteArray EventDispatcher::getMethodName(const QString &eventName, MethodType methodType) {
+    QByteArray methodName;
+    switch (methodType) {
+        case MethodType::AutoConnectMethod:
+            methodName = "onEvent";
+            break;
+        case MethodType::DirectCallMethod:
+            methodName = "onDirectEvent";
+            break;
+        case MethodType::AsyncCallMethod:
+            methodName = "onAsyncEvent";
+            break;
+    }
     methodName += toUpperCamelCase(eventName).toLatin1();
     return methodName;
 }

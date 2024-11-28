@@ -2,11 +2,13 @@
 
 #include <qobject.h>
 #include <qthread.h>
+#include <qsharedpointer.h>
 
 #include "global.h"
 
 #include "utils/valuecastutil.h"
 #include "utils/contextobserver.h"
+#include "utils/eventpackagebuilder.h"
 
 #include "eventdispatcher.h"
 
@@ -21,8 +23,10 @@ public:
     }
 
     template<typename... Args>
-    void publish(const QString& eventName, Args&&... args) const {
-        publishEvent(eventName, EventBus::ValueCastUtil::toVariantList(args...));
+    QSharedPointer<EventBus::EventPackageBuilder> publish(const QString& eventName, Args&&... args) const {
+        auto builder = QSharedPointer<EventBus::EventPackageBuilder>::create(dispatcher);
+        builder->event(eventName)->arg(EventBus::ValueCastUtil::toVariantList(args...));
+        return builder;
     }
 
     static const QEventBus& globalBus();
@@ -32,6 +36,5 @@ private:
     EventBus::EventDispatcher* dispatcher;
 
 private:
-    void publishEvent(const QString& eventName, const QVariantList& data) const;
     void registerTarget(EventBus::InvokableObserver* observer) const;
 };

@@ -25,10 +25,6 @@ QEventBus::QEventBus(QObject *parent)
     dispatchThread->start();
 }
 
-void QEventBus::publishEvent(const QString &eventName, const QVariantList &data) const {
-    dispatcher->sendEvent(eventName, data);
-}
-
 void QEventBus::registerTarget(EventBus::InvokableObserver *observer) const {
     dispatcher->addObserver(observer);
 }
